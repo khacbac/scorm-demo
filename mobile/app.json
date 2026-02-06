@@ -25,6 +25,9 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "assetBundlePatterns": [
+      "assets/scorm/**"
+    ],
     "plugins": [
       "expo-router",
       [
