@@ -11,8 +11,12 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
-  const handleOpenViewer = useCallback(() => {
-    router.push("/scorm-viewer");
+  const handleOpenTraining1 = useCallback(() => {
+    router.push({ pathname: "/scorm-viewer", params: { training: "1" } });
+  }, []);
+
+  const handleOpenTraining2 = useCallback(() => {
+    router.push({ pathname: "/scorm-viewer", params: { training: "2" } });
   }, []);
 
   return (
@@ -26,7 +30,7 @@ export default function HomeScreen() {
         </ThemedText>
         <Pressable
           accessibilityRole="button"
-          onPress={handleOpenViewer}
+          onPress={handleOpenTraining1}
           style={({ pressed }) => [
             styles.primaryButton,
             { backgroundColor: theme.tint },
@@ -34,7 +38,22 @@ export default function HomeScreen() {
           ]}
         >
           <ThemedText style={styles.primaryButtonLabel}>
-            Open SCORM Viewer
+            Start Training 1
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleOpenTraining2}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            { borderColor: theme.tint },
+            pressed && styles.secondaryButtonPressed,
+          ]}
+        >
+          <ThemedText
+            style={[styles.secondaryButtonLabel, { color: theme.tint }]}
+          >
+            Start Training 2
           </ThemedText>
         </Pressable>
       </View>
@@ -66,6 +85,19 @@ const styles = StyleSheet.create({
   },
   primaryButtonLabel: {
     color: "#fff",
+    fontWeight: "600",
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  secondaryButtonPressed: {
+    opacity: 0.7,
+  },
+  secondaryButtonLabel: {
     fontWeight: "600",
   },
 });

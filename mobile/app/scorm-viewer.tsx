@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -15,8 +16,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { buildScormRuntimeScript, ScormState } from "@/scorm/scormRuntime";
 
-const PACKAGE_ID = "Quiz18092025";
-const STORAGE_KEY = `scorm12_cmi_${PACKAGE_ID}`;
+const BASE_PACKAGE_ID = "Quiz18092025";
 const SCORM_INDEX = require("@/assets/scorm/res/index.html");
 
 const WEBVIEW_SOURCE = Platform.select({
@@ -31,8 +31,14 @@ type ScormMessage = {
 };
 
 export default function ScormViewerScreen() {
+  const { training } = useLocalSearchParams<{ training?: string }>();
+  const trainingId = training === "2" ? "2" : "1";
+  const packageId = `${BASE_PACKAGE_ID}_t${trainingId}`;
+  const storageKey = `scorm12_cmi_${packageId}`;
   const colorScheme = useColorScheme();
   const webViewRef = useRef<WebView>(null);
+  const hasAutoAdvancedRef = useRef(false);
+  const lastCompletionRef = useRef<boolean | null>(null);
   const theme = Colors[colorScheme ?? "light"];
   const [initialCmi, setInitialCmi] = useState<ScormState["cmi"] | null>(null);
   const [scormState, setScormState] = useState<ScormState | null>(null);
@@ -41,8 +47,9 @@ export default function ScormViewerScreen() {
   useEffect(() => {
     let isMounted = true;
     const loadCmi = async () => {
+      setInitialCmi(null);
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKey);
         if (!isMounted) return;
         if (raw) {
           setInitialCmi(JSON.parse(raw));
@@ -59,14 +66,14 @@ export default function ScormViewerScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [storageKey]);
 
   const injectedRuntime = useMemo(() => {
     return buildScormRuntimeScript({
-      packageId: PACKAGE_ID,
+      packageId,
       initialCmi: initialCmi ?? undefined,
     });
-  }, [initialCmi]);
+  }, [initialCmi, packageId]);
 
   const handleMessage = useCallback(async (event: WebViewMessageEvent) => {
     try {
@@ -74,28 +81,59 @@ export default function ScormViewerScreen() {
       if (message.type === "SCORM_STATE") {
         setScormState(message.payload);
         await AsyncStorage.setItem(
-          STORAGE_KEY,
+          storageKey,
           JSON.stringify(message.payload.cmi),
         );
       }
     } catch {
       // ignore malformed messages
     }
-  }, []);
+  }, [storageKey]);
 
   const handleReset = useCallback(async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.removeItem(storageKey);
     setScormState(null);
     webViewRef.current?.injectJavaScript(
       "window.__SCORM_RESET__ && window.__SCORM_RESET__(); true;",
     );
-  }, []);
+  }, [storageKey]);
 
   const handleRefreshInspector = useCallback(() => {
     webViewRef.current?.injectJavaScript(
       "window.__SCORM_GET_STATE__ && window.__SCORM_GET_STATE__(); true;",
     );
   }, []);
+
+  useEffect(() => {
+    setScormState(null);
+    setIsReady(false);
+    hasAutoAdvancedRef.current = false;
+    lastCompletionRef.current = null;
+  }, [trainingId]);
+
+  useEffect(() => {
+    if (!scormState || trainingId !== "1") return;
+    const lessonStatus =
+      scormState.cmi?.core?.lesson_status?.toLowerCase?.() ?? "";
+    const isLessonComplete = ["completed", "passed", "failed"].includes(
+      lessonStatus,
+    );
+    const isComplete = scormState.status === "2" || isLessonComplete;
+
+    if (lastCompletionRef.current === null) {
+      lastCompletionRef.current = isComplete;
+      return;
+    }
+
+    if (!lastCompletionRef.current && isComplete) {
+      if (!hasAutoAdvancedRef.current) {
+        hasAutoAdvancedRef.current = true;
+        router.replace({ pathname: "/scorm-viewer", params: { training: "2" } });
+      }
+    }
+
+    lastCompletionRef.current = isComplete;
+  }, [scormState, trainingId]);
 
   if (Platform.OS === "web") {
     return (
@@ -131,7 +169,8 @@ export default function ScormViewerScreen() {
         <View style={styles.headerText}>
           <ThemedText type="title">SCORM Viewer</ThemedText>
           <ThemedText style={styles.subtitle}>
-            Package: <ThemedText style={styles.code}>{PACKAGE_ID}</ThemedText>
+            Training {trainingId} • Package:{" "}
+            <ThemedText style={styles.code}>{BASE_PACKAGE_ID}</ThemedText>
           </ThemedText>
         </View>
         <View style={styles.headerActions}>
@@ -165,6 +204,7 @@ export default function ScormViewerScreen() {
       >
         <WebView
           ref={webViewRef}
+          key={trainingId}
           source={WEBVIEW_SOURCE}
           originWhitelist={["*"]}
           allowFileAccess
