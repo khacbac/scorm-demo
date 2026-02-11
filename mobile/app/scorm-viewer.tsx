@@ -75,20 +75,24 @@ export default function ScormViewerScreen() {
     });
   }, [initialCmi, packageId]);
 
-  const handleMessage = useCallback(async (event: WebViewMessageEvent) => {
-    try {
-      const message = JSON.parse(event.nativeEvent.data) as ScormMessage;
-      if (message.type === "SCORM_STATE") {
-        setScormState(message.payload);
-        await AsyncStorage.setItem(
-          storageKey,
-          JSON.stringify(message.payload.cmi),
-        );
+  const handleMessage = useCallback(
+    async (event: WebViewMessageEvent) => {
+      try {
+        const message = JSON.parse(event.nativeEvent.data) as ScormMessage;
+        console.log("BACHK___: handleMessage", message);
+        if (message.type === "SCORM_STATE") {
+          setScormState(message.payload);
+          await AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify(message.payload.cmi),
+          );
+        }
+      } catch {
+        // ignore malformed messages
       }
-    } catch {
-      // ignore malformed messages
-    }
-  }, [storageKey]);
+    },
+    [storageKey],
+  );
 
   const handleReset = useCallback(async () => {
     await AsyncStorage.removeItem(storageKey);
@@ -128,7 +132,10 @@ export default function ScormViewerScreen() {
     if (!lastCompletionRef.current && isComplete) {
       if (!hasAutoAdvancedRef.current) {
         hasAutoAdvancedRef.current = true;
-        router.replace({ pathname: "/scorm-viewer", params: { training: "2" } });
+        router.replace({
+          pathname: "/scorm-viewer",
+          params: { training: "2" },
+        });
       }
     }
 
@@ -163,9 +170,7 @@ export default function ScormViewerScreen() {
     <ThemedView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View
-        style={[styles.header, { borderBottomColor: theme.icon + "22" }]}
-      >
+      <View style={[styles.header, { borderBottomColor: theme.icon + "22" }]}>
         <View style={styles.headerText}>
           <ThemedText type="title">SCORM Viewer</ThemedText>
           <ThemedText style={styles.subtitle}>
